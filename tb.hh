@@ -5,20 +5,31 @@
 #pragma once
 
 #include <cassert>
+#include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace tb {
 template <typename T = std::string>
-struct TableRow {
-  explicit TableRow(std::map<std::string, T> row) : row(row){};
+class TableRow {
+ public:
   int ncols = row.size();
-
-  // Map is indexed by the column and some value of type T
   std::map<std::string, T> row;
-};
+
+  explicit TableRow(std::map<std::string, T> _row) { row = _row; }
+
+  std::string ToString() {
+    std::ostringstream os;
+    for (const auto &r : row) {
+      os << row.second << ", ";
+    }
+
+    return os.str();
+  }
+};  // namespace tb
 
 template <typename T = std::string, typename I = unsigned int>
 struct Table {
@@ -46,15 +57,20 @@ struct Table {
     index = _index;
   }
 
-  T operator[](int index) { return rows[index]; }
-  Table operator+(const Table &t) {
+  void MergeFront(const Table &t) {
+    assert(t.headings == headings);
+    rows.insert(rows.start(), t.rows);
+  }
+
+  void MergeBack(const Table &t) {
     assert(t.headings == headings);
     rows.insert(rows.end(), t.rows);
   }
 
-  void Merge(const Table &t, const bool front = false) {
+  void MergeAt(const Table &t, int index) {
     assert(t.headings == headings);
-    front ? rows.insert(rows.start(), t.rows) : rows.insert(rows.end(), t.rows);
+    assert(index + 1 < rows.size());
+    rows.insert(rows.start() + index, t.rows);
   }
 
   // Assumes l -> r preserved on create
@@ -63,12 +79,36 @@ struct Table {
 
     std::map<std::string, T> row;
 
-    // Dual iterate
     for (size_t i = 0; i < values.size(); ++i) {
       row[headings[i]] = values[i];
     }
 
     rows.push_back(TableRow<T>(row));
+  }
+
+  int size() { return rows.size(); }
+  std::pair<int, int> shape() {
+    return std::make_pair(rows.size(), headings.size());
+  }
+
+  std::string ToString() {
+    std::ostringstream os;
+
+    for (const auto heading : headings) {
+      os << heading << ", ";
+    }
+    os << "\n";
+
+    for (const auto row : rows) {
+      os << row << "\n ";
+    }
+
+    return os.str();
+  }
+
+  TableRow<T> ILoc(int index) { return rows[index]; }
+  TableRow<T> Loc(int index, const std::string &col) {
+    return rows[index].at(col);
   }
 };
 
